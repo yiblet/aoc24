@@ -1,0 +1,13 @@
+[package]
+name = "aoc24"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "day1"
+path = "src/bin/day1.rs"
+
+[dependencies]
+anyhow = { version = "1.0.94", features = ["backtrace", "std"] }
+clap = { version = "4.5.23", features = ["derive", "env"] }
+serde = { version = "1.0.216", features = ["derive"] }
