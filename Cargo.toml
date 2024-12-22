@@ -11,6 +11,10 @@ path = "src/bin/day1.rs"
 name = "day2"
 path = "src/bin/day2.rs"
 
+[[bin]]
+name = "day3"
+path = "src/bin/day3.rs"
+
 [dependencies]
 anyhow = { version = "1.0.94", features = ["backtrace", "std"] }
 clap = { version = "4.5.23", features = ["derive", "env"] }
