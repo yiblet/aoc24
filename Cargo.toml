@@ -3,6 +3,10 @@ name = "aoc24"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "aoc24"
+path = "src/lib.rs"
+
 [[bin]]
 name = "day1"
 path = "src/bin/day1.rs"
@@ -14,6 +18,10 @@ path = "src/bin/day2.rs"
 [[bin]]
 name = "day3"
 path = "src/bin/day3.rs"
+
+[[bin]]
+name = "day4"
+path = "src/bin/day4.rs"
 
 [dependencies]
 anyhow = { version = "1.0.94", features = ["backtrace", "std"] }

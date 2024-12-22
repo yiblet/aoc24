@@ -1,61 +1,41 @@
 use std::io::Read;
 
+use aoc24::parser::take_uint;
 use clap::Parser;
 
-fn take_uint(input: &str) -> Option<(u32, &str)> {
-    let mut chars = input.char_indices().peekable();
-    let mut res = 0;
-    let mut first = true;
-    while let Some((_, c)) = chars.peek() {
-        if first && !c.is_ascii_digit() {
+fn take_mul() -> impl Fn(&str) -> Option<(u64, &str)> {
+    move |input: &str| {
+        if !input.starts_with("mul(") {
             return None;
         }
-        first = false;
-
-        if c.is_ascii_digit() {
-            res = res * 10 + (c.to_digit(10).unwrap());
-        } else {
-            break;
+        let (mul1, rest) = take_uint()(&input[4..])?;
+        if !rest.starts_with(',') {
+            return None;
         }
-
-        chars.next();
+        let (mul2, rest) = take_uint()(&rest[1..])?;
+        if !rest.starts_with(')') {
+            return None;
+        }
+        Some((mul1 * mul2, &rest[1..]))
     }
-
-    let rest = match chars.peek() {
-        Some((idx, _)) => &input[*idx..],
-        None => &input[input.len()..],
-    };
-
-    Some((res, rest))
 }
 
-fn take_mul(input: &str) -> Option<(u32, &str)> {
-    if !input.starts_with("mul(") {
-        return None;
+fn take_do() -> impl Fn(&str) -> Option<(bool, &str)> {
+    move |input: &str| {
+        if !input.starts_with("do()") {
+            return None;
+        }
+        Some((true, &input[4..]))
     }
-    let (mul1, rest) = take_uint(&input[4..])?;
-    if !rest.starts_with(',') {
-        return None;
-    }
-    let (mul2, rest) = take_uint(&rest[1..])?;
-    if !rest.starts_with(')') {
-        return None;
-    }
-    Some((mul1 * mul2, &rest[1..]))
 }
 
-fn take_do(input: &str) -> Option<(bool, &str)> {
-    if !input.starts_with("do()") {
-        return None;
+fn take_dont() -> impl Fn(&str) -> Option<(bool, &str)> {
+    move |input: &str| {
+        if !input.starts_with("don't()") {
+            return None;
+        }
+        Some((false, &input["don't()".len()..]))
     }
-    Some((true, &input[4..]))
-}
-
-fn take_dont(input: &str) -> Option<(bool, &str)> {
-    if !input.starts_with("don't()") {
-        return None;
-    }
-    Some((false, &input["don't()".len()..]))
 }
 
 fn parse_file(filename: &str) -> anyhow::Result<usize> {
@@ -67,7 +47,7 @@ fn parse_file(filename: &str) -> anyhow::Result<usize> {
     let mut res = 0usize;
     let mut cur = &input[..];
     while let Some(pos) = cur.find("mul(") {
-        match take_mul(&cur[pos..]) {
+        match take_mul()(&cur[pos..]) {
             Some((mul, rest)) => {
                 res += mul as usize;
                 cur = rest;
@@ -92,13 +72,13 @@ fn parse_file2(filename: &str) -> anyhow::Result<usize> {
     let mut do_status = true;
     let mut res = 0usize;
     while !cur.is_empty() {
-        if let Some((_, rest)) = take_do(cur) {
+        if let Some((_, rest)) = take_do()(cur) {
             do_status = true;
             cur = rest;
-        } else if let Some((_, rest)) = take_dont(cur) {
+        } else if let Some((_, rest)) = take_dont()(cur) {
             do_status = false;
             cur = rest;
-        } else if let Some((mul, rest)) = take_mul(cur) {
+        } else if let Some((mul, rest)) = take_mul()(cur) {
             if do_status {
                 res += mul as usize;
             }
