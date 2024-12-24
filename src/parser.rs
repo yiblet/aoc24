@@ -47,14 +47,12 @@ pub fn take_char<'a>(expected: char) -> impl Fn(&'a str) -> Option<(char, &'a st
 }
 
 pub fn take_any<'a, 'e>(expected: &'e str) -> impl Fn(&'a str) -> Option<(&'e str, &'a str)> + 'e {
-    move |input: &str| {
-        match expected.chars().find(|c| input.starts_with(*c)) {
-            Some(c) => {
-                let rest = &input[c.len_utf8()..];
-                Some((expected, rest))
-            }
-            None => None,
+    move |input: &str| match expected.chars().find(|c| input.starts_with(*c)) {
+        Some(c) => {
+            let rest = &input[c.len_utf8()..];
+            Some((expected, rest))
         }
+        None => None,
     }
 }
 
