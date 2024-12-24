@@ -39,13 +39,22 @@ pub fn take_str<'a, 'e>(expected: &'e str) -> impl Fn(&'a str) -> Option<(&'e st
     }
 }
 
+pub fn take_char<'a>(expected: char) -> impl Fn(&'a str) -> Option<(char, &'a str)> {
+    move |input: &str| match input.chars().next() {
+        Some(c) if c == expected => Some((c, &input[c.len_utf8()..])),
+        _ => None,
+    }
+}
+
 pub fn take_any<'a, 'e>(expected: &'e str) -> impl Fn(&'a str) -> Option<(&'e str, &'a str)> + 'e {
     move |input: &str| {
-        if !expected.chars().any(|c| input.starts_with(c)) {
-            return None;
+        match expected.chars().find(|c| input.starts_with(*c)) {
+            Some(c) => {
+                let rest = &input[c.len_utf8()..];
+                Some((expected, rest))
+            }
+            None => None,
         }
-        let rest = &input[expected.len()..];
-        Some((expected, rest))
     }
 }
 
@@ -205,6 +214,88 @@ pub fn take_either<'a, A, B>(
             return Some((Either::Right(b), rest));
         }
         None
+    }
+}
+
+pub fn take_many0<'a, F>(
+    first: impl Fn(&'a str) -> Option<(F, &'a str)>,
+) -> impl Fn(&'a str) -> Option<(Vec<F>, &'a str)> {
+    move |input: &str| -> Option<(Vec<F>, &str)> {
+        let mut res = vec![];
+        let mut cur = input;
+        while let Some((item, rest)) = first(cur) {
+            res.push(item);
+            cur = rest;
+        }
+
+        Some((res, cur))
+    }
+}
+
+pub fn take_many1<'a, F>(
+    first: impl Fn(&'a str) -> Option<(F, &'a str)>,
+) -> impl Fn(&'a str) -> Option<(Vec<F>, &'a str)> {
+    move |input: &'a str| -> Option<(Vec<F>, &'a str)> {
+        let mut res = vec![];
+        let mut cur = input;
+        while let Some((item, rest)) = first(cur) {
+            res.push(item);
+            cur = rest;
+        }
+
+        if res.is_empty() {
+            return None;
+        }
+
+        Some((res, cur))
+    }
+}
+
+pub fn take_or<'a, F>(
+    first: impl Fn(&'a str) -> Option<(F, &'a str)>,
+    second: impl Fn(&'a str) -> Option<(F, &'a str)>,
+) -> impl Fn(&'a str) -> Option<(F, &'a str)> {
+    move |input: &str| -> Option<(F, &str)> {
+        if let Some((f, rest)) = first(input) {
+            return Some((f, rest));
+        }
+        second(input)
+    }
+}
+
+pub fn take_or3<'a, F>(
+    first: impl Fn(&'a str) -> Option<(F, &'a str)>,
+    second: impl Fn(&'a str) -> Option<(F, &'a str)>,
+    third: impl Fn(&'a str) -> Option<(F, &'a str)>,
+) -> impl Fn(&'a str) -> Option<(F, &'a str)> {
+    move |input: &str| -> Option<(F, &str)> {
+        if let Some((f, rest)) = first(input) {
+            return Some((f, rest));
+        }
+        if let Some((f, rest)) = second(input) {
+            return Some((f, rest));
+        }
+        third(input)
+    }
+}
+
+pub fn take_or4<'a, F>(
+    first: impl Fn(&'a str) -> Option<(F, &'a str)>,
+    second: impl Fn(&'a str) -> Option<(F, &'a str)>,
+    third: impl Fn(&'a str) -> Option<(F, &'a str)>,
+    fourth: impl Fn(&'a str) -> Option<(F, &'a str)>,
+) -> impl Fn(&'a str) -> Option<(F, &'a str)> {
+    move |input: &str| -> Option<(F, &str)> {
+        if let Some((f, rest)) = first(input) {
+            return Some((f, rest));
+        }
+        if let Some((f, rest)) = second(input) {
+            return Some((f, rest));
+        }
+        if let Some((f, rest)) = third(input) {
+            return Some((f, rest));
+        }
+        fourth(input)
     }
 }
 

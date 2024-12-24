@@ -3,7 +3,7 @@ use std::{
     io::BufRead,
 };
 
-use aoc24::parser;
+use aoc24::{parser, util};
 use clap::Parser;
 
 #[derive(Debug, clap::Parser)]
@@ -35,7 +35,7 @@ struct ParsedResult {
     inputs: Vec<Vec<i64>>,
 }
 
-fn parse_input<S: AsRef<str>>(lines: impl Iterator<Item = S>) -> anyhow::Result<ParsedResult> {
+fn parse_input<S: AsRef<str>, I: Iterator<Item = S>>(lines: I) -> anyhow::Result<ParsedResult> {
     let mut orderings = vec![];
     let mut inputs = vec![];
 
@@ -86,28 +86,11 @@ fn parse_input<S: AsRef<str>>(lines: impl Iterator<Item = S>) -> anyhow::Result<
 }
 
 fn parse_file(filename: &str) -> anyhow::Result<ParsedResult> {
-    let mut file = std::fs::File::open(filename)?;
-    let bufreader = std::io::BufReader::new(&mut file);
+    let mut lines = util::read_file_lines(filename)?;
 
-    let mut lines = bufreader.lines();
-    let mut err = None;
+    let input = parse_input(&mut lines);
 
-    let err_ref = &mut err;
-    let lines = std::iter::from_fn(move || {
-        let line = lines.next();
-        match line {
-            Some(Ok(line)) => Some(line),
-            Some(Err(e)) => {
-                *err_ref = Some(e);
-                None
-            }
-            None => None,
-        }
-    });
-
-    let input = parse_input(lines);
-
-    if let Some(err) = err {
+    if let Some(err) = lines.error() {
         Err(err)?
     }
 
