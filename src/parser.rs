@@ -56,6 +56,19 @@ pub fn take_any<'a, 'e>(expected: &'e str) -> impl Fn(&'a str) -> Option<(&'e st
     }
 }
 
+pub fn take_any_func<'a, F>(expected: F) -> impl Fn(&'a str) -> Option<(char, &'a str)>
+where
+    F: Fn(&char) -> bool,
+{
+    move |input: &str| match input.chars().find(|c| expected(c)) {
+        Some(c) => {
+            let rest = &input[c.len_utf8()..];
+            Some((c, rest))
+        }
+        None => None,
+    }
+}
+
 pub fn take_newline<'a>() -> impl Fn(&'a str) -> Option<(&'a str, &'a str)> {
     take_any("\n\r")
 }
