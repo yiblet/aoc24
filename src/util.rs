@@ -44,7 +44,10 @@ impl<S, E, I: Iterator<Item = Result<S, E>>> ExtractErrorIterator<S, E, I> {
         Self { iter, err: None }
     }
 
-    pub fn error(self) -> Option<E> {
-        self.err
+    pub fn error(self) -> Result<(), E> {
+        match self.err {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
     }
 }

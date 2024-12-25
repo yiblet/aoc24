@@ -1,4 +1,4 @@
-use aoc24::{parser, util};
+use aoc24::{grid::{self, Direction}, parser, util};
 use clap::Parser;
 
 #[derive(Debug, clap::Parser)]
@@ -15,46 +15,6 @@ enum Loc {
     Hash,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum State {
-    Up = 1 << 0,
-    Down = 1 << 1,
-    Left = 1 << 2,
-    Right = 1 << 3,
-}
-
-impl State {
-    fn rotate_90_right(&self) -> Self {
-        match self {
-            Self::Up => Self::Right,
-            Self::Down => Self::Left,
-            Self::Left => Self::Up,
-            Self::Right => Self::Down,
-        }
-    }
-
-    fn apply(self, cur: (isize, isize)) -> (isize, isize) {
-        let delta = match self {
-            Self::Up => (-1, 0),
-            Self::Right => (0, 1),
-            Self::Left => (0, -1),
-            Self::Down => (1, 0),
-        };
-
-        (cur.0 + delta.0, cur.1 + delta.1)
-    }
-
-    fn apply_inverse(self, cur: (isize, isize)) -> (isize, isize) {
-        let delta = match self {
-            Self::Up => (-1, 0),
-            Self::Right => (0, 1),
-            Self::Left => (0, -1),
-            Self::Down => (1, 0),
-        };
-
-        (cur.0 - delta.0, cur.1 - delta.1)
-    }
-}
 
 #[derive(Debug)]
 struct Grid {
@@ -94,27 +54,8 @@ fn parse_file(filename: &str) -> anyhow::Result<Grid> {
 
     let input = parse_input(&mut lines);
 
-    if let Some(err) = lines.error() {
-        Err(err)?
-    }
-
+    lines.error()?;
     input
-}
-
-fn get_at<V>(grid: &Vec<Vec<V>>, pos: (isize, isize)) -> Option<&V> {
-    let (row, col) = pos;
-    if row < 0 || col < 0 {
-        return None;
-    }
-    grid.get(row as usize)?.get(col as usize)
-}
-
-fn get_at_mut<V>(grid: &mut Vec<Vec<V>>, pos: (isize, isize)) -> Option<&mut V> {
-    let (row, col) = pos;
-    if row < 0 || col < 0 {
-        return None;
-    }
-    grid.get_mut(row as usize)?.get_mut(col as usize)
 }
 
 fn fill_visited(output: &Grid) -> (Vec<Vec<usize>>, bool) {
@@ -125,10 +66,12 @@ fn fill_visited(output: &Grid) -> (Vec<Vec<usize>>, bool) {
         .collect();
 
     let mut pos = (output.start.0 as isize, output.start.1 as isize);
-    let mut state = State::Up;
+    let mut state = Direction::Up;
     let mut cycle = false;
 
-    while let Some((loc, visited)) = get_at(&output.grid, pos).zip(get_at_mut(&mut visited, pos)) {
+    while let Some((loc, visited)) =
+        grid::get_at(&output.grid, pos).zip(grid::get_at_mut(&mut visited, pos))
+    {
         // cycle detection
         if (*visited & state as usize) != 0 {
             cycle = true;
@@ -184,7 +127,7 @@ fn main() -> anyhow::Result<()> {
 
             let mut cycles = 0;
             for (row, col) in positions {
-                let Some(loc) = get_at_mut(&mut output.grid, (row, col)) else {
+                let Some(loc) = grid::get_at_mut(&mut output.grid, (row, col)) else {
                     Err(anyhow::anyhow!("could not get location"))?
                 };
                 let prev = *loc;
@@ -193,7 +136,7 @@ fn main() -> anyhow::Result<()> {
                 let (_, cycle) = fill_visited(&output);
                 cycles += cycle as usize;
 
-                let Some(loc) = get_at_mut(&mut output.grid, (row, col)) else {
+                let Some(loc) = grid::get_at_mut(&mut output.grid, (row, col)) else {
                     Err(anyhow::anyhow!("could not get location"))?
                 };
                 *loc = prev;

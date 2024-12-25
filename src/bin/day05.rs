@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    io::BufRead,
-};
+use std::collections::{HashMap, HashSet};
 
 use aoc24::{parser, util};
 use clap::Parser;
@@ -90,10 +87,7 @@ fn parse_file(filename: &str) -> anyhow::Result<ParsedResult> {
 
     let input = parse_input(&mut lines);
 
-    if let Some(err) = lines.error() {
-        Err(err)?
-    }
-
+    lines.error()?;
     input
 }
 

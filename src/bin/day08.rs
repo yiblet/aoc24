@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use aoc24::{
-    grid::{self, get_at_mut, Grid},
+    grid::{self, Grid},
     parser, util,
 };
 use clap::Parser;
@@ -18,11 +18,6 @@ enum Args {
 enum Loc {
     Space,
     Antenna(char),
-}
-
-#[derive(Debug)]
-struct Parsed {
-    grid: Vec<Vec<Loc>>,
 }
 
 fn take_line<'a>() -> impl Fn(&'a str) -> Option<(Vec<Loc>, &'a str)> {
@@ -54,9 +49,7 @@ fn parse_file(filename: &str) -> anyhow::Result<Grid<Loc>> {
 
     let input = parse_input(&mut lines);
 
-    if let Some(err) = lines.error() {
-        Err(err)?
-    }
+    lines.error()?;
 
     input
 }
@@ -78,7 +71,7 @@ fn main() -> anyhow::Result<()> {
                     },
                 );
 
-            for (loc, points) in positions.iter() {
+            for (_, points) in positions.iter() {
                 for p1 in points.iter() {
                     for p2 in points.iter() {
                         if p1 == p2 {

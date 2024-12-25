@@ -41,7 +41,9 @@ fn files_and_spaces(string: &str) -> (BTreeMap<usize, Id>, BTreeSet<usize>) {
     (files, spaces)
 }
 
-fn files_and_spaces2(string: &str) -> (BTreeMap<usize, (Id, Size)>, BTreeSet<(usize, Size)>) {
+type FilesAndSpacesResult = (BTreeMap<usize, (Id, Size)>, BTreeSet<(usize, Size)>);
+
+fn files_and_spaces2(string: &str) -> FilesAndSpacesResult {
     let mut files = BTreeMap::new();
     let mut spaces = BTreeSet::new();
     let mut pos = 0usize;
