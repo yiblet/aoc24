@@ -110,7 +110,7 @@ pub fn iter_pos<V>(grid: &Grid<V>) -> impl Iterator<Item = ((isize, isize), &V)>
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     Up = 1 << 0,
     Down = 1 << 1,
