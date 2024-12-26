@@ -1,6 +1,6 @@
 use clap::Parser;
 use either::Either;
-use std::{collections::HashMap, io::Read, iter};
+use std::{collections::HashMap, io::Read};
 
 #[derive(Debug, clap::Parser)]
 enum Args {
