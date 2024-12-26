@@ -59,9 +59,9 @@ fn main() -> anyhow::Result<()> {
     match args {
         Args::Part1 { file } => {
             let output = parse_file(&file)?;
-            let mut antinodes = grid::copy_with(&output);
+            let mut antinodes = grid::copy_default(&output);
             let positions = grid::iter_pos(&output)
-                .map(|(row, col, loc)| (loc, (row, col)))
+                .map(|((row, col), loc)| (loc, (row, col)))
                 .filter(|(loc, _)| matches!(loc, Loc::Antenna(_)))
                 .fold(
                     HashMap::new(),
@@ -98,9 +98,9 @@ fn main() -> anyhow::Result<()> {
 
         Args::Part2 { file } => {
             let output = parse_file(&file)?;
-            let mut antinodes = grid::copy_with(&output);
+            let mut antinodes = grid::copy_default(&output);
             let positions = grid::iter_pos(&output)
-                .map(|(row, col, loc)| (loc, (row, col)))
+                .map(|((row, col), loc)| (loc, (row, col)))
                 .filter(|(loc, _)| matches!(loc, Loc::Antenna(_)))
                 .fold(
                     HashMap::new(),

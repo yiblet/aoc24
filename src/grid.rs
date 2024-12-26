@@ -11,16 +11,26 @@ pub fn parse_grid(filename: &str) -> anyhow::Result<Grid<char>> {
     Ok(grid)
 }
 
+pub fn neighbors<V>(
+    grid: &Grid<V>,
+    pos: (isize, isize),
+) -> impl Iterator<Item = ((isize, isize), &V)> + '_ {
+    Direction::all_directions()
+        .into_iter()
+        .map(move |dir| dir.apply(pos))
+        .filter_map(|(row, col)| get_at(grid, (row, col)).map(|v| ((row, col), v)))
+}
+
 pub fn map<V, V2, F>(grid: &Grid<V>, mut f: F) -> Grid<V2>
 where
-    F: FnMut(usize, usize, &V) -> V2,
+    F: FnMut((isize, isize), &V) -> V2,
 {
     grid.iter()
         .enumerate()
         .map(|(row, v)| {
             v.iter()
                 .enumerate()
-                .map(|(col, v)| f(row, col, v))
+                .map(|(col, v)| f((row as isize, col as isize), v))
                 .collect()
         })
         .collect()
@@ -28,14 +38,14 @@ where
 
 pub fn map_result<V, V2, E, F>(grid: &Grid<V>, mut f: F) -> Result<Grid<V2>, E>
 where
-    F: FnMut(usize, usize, &V) -> Result<V2, E>,
+    F: FnMut((isize, isize), &V) -> Result<V2, E>,
 {
     grid.iter()
         .enumerate()
         .map(|(row, v)| {
             v.iter()
                 .enumerate()
-                .map(|(col, v)| f(row, col, v))
+                .map(|(col, v)| f((row as isize, col as isize), v))
                 .collect()
         })
         .collect()
@@ -57,7 +67,7 @@ pub fn get_at_mut<V>(grid: &mut Grid<V>, pos: (isize, isize)) -> Option<&mut V> 
     grid.get_mut(row as usize)?.get_mut(col as usize)
 }
 
-pub fn copy_with<V, V2: Default>(grid: &Grid<V>) -> Vec<Vec<V2>> {
+pub fn copy_default<V, V2: Default>(grid: &Grid<V>) -> Vec<Vec<V2>> {
     grid.iter()
         .map(|v| v.iter().map(|_| V2::default()).collect())
         .collect()
@@ -92,11 +102,11 @@ pub fn reduce_vec(v: (isize, isize)) -> (isize, isize) {
     (a / divisor, b / divisor) // Reduce both numerator and denominator
 }
 
-pub fn iter_pos<V>(grid: &Grid<V>) -> impl Iterator<Item = (isize, isize, &V)> + '_ {
+pub fn iter_pos<V>(grid: &Grid<V>) -> impl Iterator<Item = ((isize, isize), &V)> + '_ {
     grid.iter().enumerate().flat_map(|(row, v)| {
         v.iter()
             .enumerate()
-            .map(move |(col, v)| (row as isize, col as isize, v))
+            .map(move |(col, v)| ((row as isize, col as isize), v))
     })
 }
 
@@ -111,6 +121,39 @@ pub enum Direction {
 impl Direction {
     pub fn all_directions() -> [Self; 4] {
         [Self::Up, Self::Down, Self::Left, Self::Right]
+    }
+
+    pub fn all_diagonals() -> [[Self; 2]; 4] {
+        [
+            [Self::Up, Self::Left],
+            [Self::Up, Self::Right],
+            [Self::Down, Self::Left],
+            [Self::Down, Self::Right],
+        ]
+    }
+
+    pub fn horizontal(self) -> [Self; 2] {
+        [Self::Up, Self::Down]
+    }
+
+    pub fn vertical(self) -> [Self; 2] {
+        [Self::Left, Self::Right]
+    }
+
+    pub fn is_horizontal(self) -> bool {
+        self.horizontal().contains(&self)
+    }
+
+    pub fn is_vertical(self) -> bool {
+        self.vertical().contains(&self)
+    }
+
+    pub fn adjacent(self) -> [Self; 2] {
+        if self.is_horizontal() {
+            self.vertical()
+        } else {
+            self.horizontal()
+        }
     }
 
     pub fn invert(self) -> Self {

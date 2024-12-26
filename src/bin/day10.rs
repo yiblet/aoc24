@@ -104,16 +104,16 @@ fn main() -> anyhow::Result<()> {
     match args {
         Args::Part1 { file } => {
             let output = grid::parse_grid(&file)?;
-            let grid = grid::map_result(&output, |_, _, chr| {
+            let grid = grid::map_result(&output, |_, chr| {
                 chr.to_digit(10)
                     .ok_or_else(|| anyhow::anyhow!("not a digit"))
             })?;
 
-            let mut visited = grid::copy_with(&grid);
-            let zeros = grid::iter_pos(&grid).filter(|(_, _, c)| **c == 0);
+            let mut visited = grid::copy_default(&grid);
+            let zeros = grid::iter_pos(&grid).filter(|(_, c)| **c == 0);
 
             let mut res = 0;
-            for (row, col, c) in zeros {
+            for ((row, col), c) in zeros {
                 // print the row 
                 let score = walk(&grid, &mut visited, (row, col), *c).len();
                 println!("row {}, col {}, score {}", row, col, score);
@@ -126,16 +126,16 @@ fn main() -> anyhow::Result<()> {
 
         Args::Part2 { file } => {
             let output = grid::parse_grid(&file)?;
-            let grid = grid::map_result(&output, |_, _, chr| {
+            let grid = grid::map_result(&output, |_, chr| {
                 chr.to_digit(10)
                     .ok_or_else(|| anyhow::anyhow!("not a digit"))
             })?;
 
-            let mut visited = grid::copy_with(&grid);
-            let zeros = grid::iter_pos(&grid).filter(|(_, _, c)| **c == 0);
+            let mut visited = grid::copy_default(&grid);
+            let zeros = grid::iter_pos(&grid).filter(|(_, c)| **c == 0);
 
             let mut res = 0;
-            for (row, col, c) in zeros {
+            for ((row, col), c) in zeros {
                 // print the row 
                 let score = walk2(&grid, &mut visited, (row, col), *c);
                 println!("row {}, col {}, score {}", row, col, score);
