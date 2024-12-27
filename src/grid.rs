@@ -1,6 +1,7 @@
 use crate::util;
 
 pub type Grid<V> = Vec<Vec<V>>;
+pub type Index = (isize, isize);
 
 pub fn parse_grid(filename: &str) -> anyhow::Result<Grid<char>> {
     let mut lines = util::read_file_lines(filename)?;
@@ -133,11 +134,11 @@ impl Direction {
     }
 
     pub fn horizontal(self) -> [Self; 2] {
-        [Self::Up, Self::Down]
+        [Self::Left, Self::Right]
     }
 
     pub fn vertical(self) -> [Self; 2] {
-        [Self::Left, Self::Right]
+        [Self::Up, Self::Down]
     }
 
     pub fn is_horizontal(self) -> bool {

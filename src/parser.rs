@@ -46,11 +46,15 @@ pub fn take_char<'a>(expected: char) -> impl Fn(&'a str) -> Option<(char, &'a st
     }
 }
 
-pub fn take_any<'a, 'e>(expected: &'e str) -> impl Fn(&'a str) -> Option<(&'e str, &'a str)> + 'e {
+pub fn take_any_char<'a>() -> impl Fn(&'a str) -> Option<(char, &'a str)> {
+    move |input: &str| input.chars().next().map(|c| (c, &input[c.len_utf8()..]))
+}
+
+pub fn take_any<'a, 'e>(expected: &'e str) -> impl Fn(&'a str) -> Option<(char, &'a str)> + 'e {
     move |input: &str| match expected.chars().find(|c| input.starts_with(*c)) {
         Some(c) => {
             let rest = &input[c.len_utf8()..];
-            Some((expected, rest))
+            Some((c, rest))
         }
         None => None,
     }
@@ -69,15 +73,15 @@ where
     }
 }
 
-pub fn take_newline<'a>() -> impl Fn(&'a str) -> Option<(&'a str, &'a str)> {
+pub fn take_newline<'a>() -> impl Fn(&'a str) -> Option<(char, &'a str)> {
     take_any("\n\r")
 }
 
-pub fn take_whitespace<'a>() -> impl Fn(&'a str) -> Option<(&'a str, &'a str)> {
+pub fn take_whitespace<'a>() -> impl Fn(&'a str) -> Option<(char, &'a str)> {
     take_any(" \t\r\n")
 }
 
-pub fn take_spacetab<'a>() -> impl Fn(&'a str) -> Option<(&'a str, &'a str)> {
+pub fn take_spacetab<'a>() -> impl Fn(&'a str) -> Option<(char, &'a str)> {
     take_any(" \t")
 }
 
