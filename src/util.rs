@@ -11,6 +11,15 @@ pub fn read_file_lines(
     Ok(ExtractErrorIterator::new(bufreader.lines()))
 }
 
+#[allow(clippy::type_complexity)]
+pub fn read_lines(
+    writer: &mut dyn io::Read,
+) -> Result<ExtractErrorIterator<String, io::Error, Lines<BufReader<&mut dyn io::Read>>>, io::Error>
+{
+    let bufreader = std::io::BufReader::new(writer);
+    Ok(ExtractErrorIterator::new(bufreader.lines()))
+}
+
 pub fn extract_error<S, E, I: Iterator<Item = Result<S, E>>>(
     iter: I,
 ) -> ExtractErrorIterator<S, E, I> {

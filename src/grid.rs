@@ -3,6 +3,13 @@ use crate::util;
 pub type Grid<V> = Vec<Vec<V>>;
 pub type Index = (isize, isize);
 
+pub fn read_grid(reader: &mut dyn std::io::Read) -> anyhow::Result<Grid<char>> {
+    let mut lines = util::read_lines(reader)?;
+    let grid: Grid<char> = lines.by_ref().map(|line| line.chars().collect()).collect();
+    lines.error()?;
+    Ok(grid)
+}
+
 pub fn parse_grid(filename: &str) -> anyhow::Result<Grid<char>> {
     let mut lines = util::read_file_lines(filename)?;
 
@@ -111,7 +118,7 @@ pub fn iter_pos<V>(grid: &Grid<V>) -> impl Iterator<Item = ((isize, isize), &V)>
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Direction {
     Up = 1 << 0,
     Down = 1 << 1,

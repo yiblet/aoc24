@@ -1,6 +1,5 @@
 use aoc24::{grid, parser};
 use clap::Parser;
-use std::collections::HashSet;
 use std::io::Write;
 use std::{collections::HashMap, io::Read};
 
@@ -78,23 +77,6 @@ fn in_quadrant(pos: (isize, isize), bounds: (isize, isize), quadrant: usize) -> 
     };
 
     q == quadrant
-}
-
-fn quadrant(pos: (isize, isize), bounds: (isize, isize)) -> Option<usize> {
-    let on_left = pos.0 < bounds.0 / 2;
-    let on_right = pos.0 > bounds.0 / 2;
-    let on_top = pos.1 < bounds.1 / 2;
-    let on_bottom = pos.1 > bounds.1 / 2;
-
-    let q = match (on_left, on_right, on_top, on_bottom) {
-        (true, _, true, _) => 0,
-        (true, _, _, true) => 1,
-        (_, true, true, _) => 2,
-        (_, true, _, true) => 3,
-        _ => return None,
-    };
-
-    Some(q)
 }
 
 fn parse_file(filename: &str) -> anyhow::Result<Vec<Robot>> {

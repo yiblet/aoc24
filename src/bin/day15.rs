@@ -1,7 +1,4 @@
-use std::{
-    collections::{btree_map, BTreeMap, BTreeSet},
-    io::Read,
-};
+use std::{collections::BTreeSet, io::Read};
 
 use aoc24::{grid, parser};
 use clap::Parser;
@@ -163,90 +160,6 @@ fn move_to3(
     }
 
     Some(dir.apply(pos))
-}
-
-fn move_to2(
-    entries: &mut grid::Grid<Entry2>,
-    pos: grid::Index,
-    dir: grid::Direction,
-    from: Option<grid::Direction>,
-) -> Option<grid::Index> {
-    // GUARD: move_to2 returns Some if the position is opened up meaning that the entry
-    // at that position did move to the new position.
-    //
-    // This also means that if move_to2 returns Some, then we know that the entry at
-    // p2 is now empty.
-    fn simple_move(
-        entries: &mut Vec<Vec<Entry2>>,
-        pos: (isize, isize),
-        dir: grid::Direction,
-        entry: Entry2,
-    ) -> Option<(isize, isize)> {
-        let p2 = dir.apply(pos);
-        let new_from = Some(dir.invert());
-        move_to2(entries, p2, dir, new_from)?;
-        // SAFETY: we know that the position in the next pos is within the bounds
-        // already through the recursive call
-        *grid::get_at_mut(entries, p2).unwrap() = entry;
-        // SAFETY: we know that the position in the current pos is within the bounds
-        // already
-        *grid::get_at_mut(entries, pos).unwrap() = Entry2::Empty;
-        Some(p2)
-    }
-
-    let p2 = dir.apply(pos);
-    match grid::get_at(entries, pos) {
-        // Entry2:::Empty works because empty spaces can move anywhere
-        Some(Entry2::Empty) => Some(p2),
-        // Walls and boundaries can't move
-        Some(Entry2::Wall) | None => None,
-
-        // robots can move but only if item in front of them is an empty space.
-        Some(Entry2::Robot) => simple_move(entries, pos, dir, Entry2::Robot),
-        // LBox and RBox can move horizontally (and move simply when horizontal)
-        Some(entry @ Entry2::LBox) | Some(entry @ Entry2::RBox) if dir.is_horizontal() => {
-            simple_move(entries, pos, dir, *entry)
-        }
-        Some(Entry2::LBox) => {
-            println!("{:?}", from);
-            let rbox_pos = grid::Direction::Right.apply(pos);
-            assert!(matches!(
-                grid::get_at(entries, rbox_pos),
-                Some(Entry2::RBox)
-            ));
-            // if we are moving vertically, we need to move the right box first
-            // the match statement is to make sure through recursive calls we don't
-            // move the box twice.
-            //
-            // We track from which direction we came from so that we aren't already
-            // moving the box based on the RBox.
-            if !matches!(from, Some(grid::Direction::Right)) {
-                let lbox_from = Some(grid::Direction::Right.invert());
-                move_to2(entries, rbox_pos, dir, lbox_from)?;
-            }
-
-            simple_move(entries, pos, dir, Entry2::LBox)
-        }
-        Some(Entry2::RBox) => {
-            let lbox_pos = grid::Direction::Left.apply(pos);
-            assert!(matches!(
-                grid::get_at(entries, lbox_pos),
-                Some(Entry2::LBox)
-            ));
-            // if we are moving vertically, we need to move the left box first
-            // the match statement is to make sure through recursive calls we don't
-            // move the box twice.
-            //
-            // We track from which direction we came from so that we aren't already
-            // moving the box based on the LBox.
-            if !matches!(from, Some(grid::Direction::Left)) {
-                let rbox_from = Some(grid::Direction::Left.invert());
-                move_to2(entries, lbox_pos, dir, rbox_from)?;
-            }
-
-            simple_move(entries, pos, dir, Entry2::RBox)
-        }
-    }
 }
 
 fn take_result<'a>() -> impl Fn(&'a str) -> Option<(ParsedResult, &'a str)> {
