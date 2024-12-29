@@ -56,7 +56,6 @@ fn walk2(
 
 type TrailEnds = Rc<HashSet<(isize, isize)>>;
 
-
 fn walk(
     grid: &grid::Grid<u32>,
     visited: &mut grid::Grid<Option<TrailEnds>>,
@@ -98,7 +97,6 @@ fn walk(
     res
 }
 
-
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     match args {
@@ -114,7 +112,7 @@ fn main() -> anyhow::Result<()> {
 
             let mut res = 0;
             for ((row, col), c) in zeros {
-                // print the row 
+                // print the row
                 let score = walk(&grid, &mut visited, (row, col), *c).len();
                 println!("row {}, col {}, score {}", row, col, score);
                 res += score;
@@ -136,7 +134,7 @@ fn main() -> anyhow::Result<()> {
 
             let mut res = 0;
             for ((row, col), c) in zeros {
-                // print the row 
+                // print the row
                 let score = walk2(&grid, &mut visited, (row, col), *c);
                 println!("row {}, col {}, score {}", row, col, score);
                 res += score;

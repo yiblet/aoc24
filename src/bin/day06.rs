@@ -1,4 +1,7 @@
-use aoc24::{grid::{self, Direction}, parser, util};
+use aoc24::{
+    grid::{self, Direction},
+    parser, util,
+};
 use clap::Parser;
 
 #[derive(Debug, clap::Parser)]
@@ -14,7 +17,6 @@ enum Loc {
     Space,
     Hash,
 }
-
 
 #[derive(Debug)]
 struct Grid {

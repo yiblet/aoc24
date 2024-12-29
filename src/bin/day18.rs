@@ -1,8 +1,4 @@
-use std::{
-    cmp,
-    collections::{BTreeMap, BTreeSet},
-    io::Read,
-};
+use std::{cmp, collections::BTreeSet, io::Read};
 
 use aoc24::{graph, grid, parser};
 use clap::Parser;
@@ -47,7 +43,7 @@ fn run_with_drops(output: &[grid::Index], value: usize) -> anyhow::Result<Option
     let drops = &output[0..=cmp::min(value, output.len())]
         .iter()
         .collect::<BTreeSet<_>>();
-    let mut graph: BTreeMap<grid::Index, Vec<(grid::Index, usize)>> = BTreeMap::new();
+    let mut graph = graph::Graph::<grid::Index>::new();
     let shape = 70;
 
     for i in 0..=shape {
@@ -64,7 +60,7 @@ fn run_with_drops(output: &[grid::Index], value: usize) -> anyhow::Result<Option
                 if drops.contains(&pos2) {
                     continue;
                 }
-                graph.entry(pos).or_default().push((pos2, 1));
+                graph.entry(pos).or_default().insert((pos2, 1));
             }
         }
     }

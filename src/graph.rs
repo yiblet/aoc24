@@ -3,10 +3,9 @@ use std::{
     fmt,
 };
 
-pub fn dijkstras<'a, T>(
-    weighted_graph: &'a BTreeMap<T, Vec<(T, usize)>>,
-    start: &'a T,
-) -> BTreeMap<&'a T, usize>
+pub type Graph<Node> = BTreeMap<Node, BTreeSet<(Node, usize)>>;
+
+pub fn dijkstras<'a, T>(weighted_graph: &'a Graph<T>, start: &'a T) -> BTreeMap<&'a T, usize>
 where
     T: PartialEq + Eq + Ord + PartialOrd,
 {
@@ -41,20 +40,18 @@ where
     distances
 }
 
-pub fn reverse_graph<Node: std::cmp::Ord + Copy>(
-    graph: &BTreeMap<Node, Vec<(Node, usize)>>,
-) -> BTreeMap<Node, Vec<(Node, usize)>> {
-    let mut res: BTreeMap<Node, Vec<(Node, usize)>> = BTreeMap::new();
+pub fn reverse_graph<Node: std::cmp::Ord + Copy>(graph: &Graph<Node>) -> Graph<Node> {
+    let mut res: Graph<Node> = Graph::new();
     for (n, v) in graph.iter() {
         for (n2, w) in v {
-            res.entry(*n2).or_default().push((*n, *w));
+            res.entry(*n2).or_default().insert((*n, *w));
         }
     }
     res
 }
 
 pub fn all_paths<Node: std::cmp::Ord + Copy + fmt::Debug>(
-    graph: &BTreeMap<Node, Vec<(Node, usize)>>,
+    graph: &Graph<Node>,
     distances: &BTreeMap<&Node, usize>,
     start: Node,
     end: Node,
@@ -90,7 +87,7 @@ pub fn all_paths<Node: std::cmp::Ord + Copy + fmt::Debug>(
 }
 
 fn neighbors<Node: std::cmp::Ord + Copy>(
-    graph: &BTreeMap<Node, Vec<(Node, usize)>>,
+    graph: &Graph<Node>,
     end: Node,
 ) -> impl Iterator<Item = (Node, usize)> + '_ {
     graph.get(&end).into_iter().flatten().cloned()

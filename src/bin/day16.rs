@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use aoc24::{
-    graph::{all_paths, dijkstras},
+    graph::{self, all_paths, dijkstras},
     grid::{self},
 };
 use clap::Parser;
@@ -36,8 +36,8 @@ const START_NODE: (grid::Index, grid::Direction) = ((isize::MIN, isize::MIN), gr
 const END_NODE: (grid::Index, grid::Direction) = ((isize::MAX, isize::MAX), grid::Direction::Up);
 
 impl ParsedResult {
-    fn create_graph(&self) -> BTreeMap<Node, Vec<(Node, usize)>> {
-        let mut res: BTreeMap<Node, Vec<(Node, usize)>> = BTreeMap::new();
+    fn create_graph(&self) -> graph::Graph<Node> {
+        let mut res = graph::Graph::<Node>::new();
         for (pos, item) in grid::iter_pos(&self.grid) {
             for dir in grid::Direction::all_directions() {
                 match item {
@@ -45,14 +45,16 @@ impl ParsedResult {
                         let pos2 = dir.apply(pos);
                         if !matches!(grid::get_at(&self.grid, pos2), Some(Item::Wall) | None) {
                             let v = res.entry((pos, dir)).or_default();
-                            v.push(((pos2, dir), 1));
+                            v.insert(((pos2, dir), 1));
                         }
 
                         for dir2 in grid::Direction::all_directions() {
                             if dir2 == dir {
                                 continue;
                             }
-                            res.entry((pos, dir)).or_default().push(((pos, dir2), 1000));
+                            res.entry((pos, dir))
+                                .or_default()
+                                .insert(((pos, dir2), 1000));
                         }
                     }
                     Item::Wall => {
@@ -64,11 +66,13 @@ impl ParsedResult {
 
         res.entry(START_NODE)
             .or_default()
-            .push(((self.start, grid::Direction::Right), 0));
+            .insert(((self.start, grid::Direction::Right), 0));
 
         // connect all possible end positions
         for dir in grid::Direction::all_directions() {
-            res.entry((self.end, dir)).or_default().push((END_NODE, 0));
+            res.entry((self.end, dir))
+                .or_default()
+                .insert((END_NODE, 0));
         }
 
         res

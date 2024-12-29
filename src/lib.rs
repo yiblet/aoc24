@@ -1,4 +1,4 @@
+pub mod graph;
+pub mod grid;
 pub mod parser;
 pub mod util;
-pub mod grid;
-pub mod graph;
