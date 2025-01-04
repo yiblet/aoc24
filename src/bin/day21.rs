@@ -1,10 +1,11 @@
+use anyhow::Result;
 use aoc24::{
-    graph::{self, Graph},
+    graph::{self},
     grid::{self, Direction},
     parser,
 };
 use clap::Parser;
-use std::{collections::BTreeMap, io::Read};
+use std::{collections::BTreeMap, io::Read, rc::Rc, sync::OnceLock};
 
 #[derive(Debug, clap::Parser)]
 enum Args {
@@ -73,14 +74,44 @@ impl NumberPad {
         ]
     }
 
+    fn shortest_paths() -> &'static ShortestPathCache<NumberPad> {
+        fn init_shortest_paths() -> ShortestPathCache<NumberPad> {
+            let mut graph = graph::Graph::new();
+            for n1 in NumberPad::all().iter().cloned() {
+                for n1n in n1.neighbors() {
+                    graph::add_edge(&mut graph, n1, n1n, 1);
+                }
+            }
+
+            let mut res = BTreeMap::new();
+            let apsp = graph::all_pairs_shortest_paths(&graph);
+            for (n1, distances) in apsp.iter() {
+                for (n2, _) in distances.iter() {
+                    let paths = graph::all_paths(&graph, distances, **n1, **n2);
+                    res.insert((**n1, **n2), graph::paths_to_vecs(&paths, **n1, **n2));
+                }
+            }
+
+            res
+        }
+
+        static NUMBERPAD_SHORTEST_PATHS: OnceLock<ShortestPathCache<NumberPad>> = OnceLock::new();
+
+        NUMBERPAD_SHORTEST_PATHS.get_or_init(init_shortest_paths)
+    }
+
     fn neighbors(&self) -> impl Iterator<Item = Self> {
         neighbors(Self::grid(), *self)
     }
 
-    fn neighbor(&self, dir: Direction) -> Option<Self> {
-        neighbor(Self::grid(), *self, dir)
+    fn shortest_path(&self, other: &Self) -> Option<&'static Vec<Vec<Self>>> {
+        let paths = Self::shortest_paths();
+        let path = paths.get(&(*self, *other))?;
+        Some(path)
     }
 }
+
+type ShortestPathCache<N> = BTreeMap<(N, N), Vec<Vec<N>>>;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
 enum ArrowPad {
@@ -114,12 +145,41 @@ impl ArrowPad {
         ]
     }
 
+    fn shortest_paths() -> &'static ShortestPathCache<ArrowPad> {
+        fn init_shortest_paths() -> ShortestPathCache<ArrowPad> {
+            let mut graph = graph::Graph::new();
+            for a1 in ArrowPad::all().iter().cloned() {
+                for a1n in a1.neighbors() {
+                    graph::add_edge(&mut graph, a1, a1n, 1);
+                }
+            }
+
+            // for each node, find the shortest path to each neighbor
+            let mut res = BTreeMap::new();
+            let apsp = graph::all_pairs_shortest_paths(&graph);
+            for (a1, distances) in apsp.iter() {
+                for (a2, _) in distances.iter() {
+                    let paths = graph::all_paths(&graph, distances, **a1, **a2);
+                    res.insert((**a1, **a2), graph::paths_to_vecs(&paths, **a1, **a2));
+                }
+            }
+
+            res
+        }
+
+        static ARROWPAD_SHORTEST_PATHS: OnceLock<ShortestPathCache<ArrowPad>> = OnceLock::new();
+
+        ARROWPAD_SHORTEST_PATHS.get_or_init(init_shortest_paths)
+    }
+
     fn neighbors(&self) -> impl Iterator<Item = Self> {
         neighbors(Self::grid(), *self)
     }
 
-    fn neighbor(&self, dir: Direction) -> Option<Self> {
-        neighbor(Self::grid(), *self, dir)
+    fn shortest_path(&self, other: &Self) -> Option<&'static Vec<Vec<Self>>> {
+        let paths = Self::shortest_paths();
+        let path = paths.get(&(*self, *other))?;
+        Some(path)
     }
 }
 
@@ -160,140 +220,6 @@ fn neighbors<const N: usize, const M: usize, T: Eq + Clone>(
         })
 }
 
-fn neighbor<const N: usize, const M: usize, T: Eq + Clone>(
-    arr: &[[Option<T>; M]; N],
-    value: T,
-    dir: Direction,
-) -> Option<T> {
-    let v = find(arr, |v| *v == Some(value.clone()))?;
-    let pos = dir.apply(v);
-    if pos.0 < 0 || pos.1 < 0 {
-        return None;
-    }
-    arr.get(pos.0 as usize)?.get(pos.1 as usize).cloned()?
-}
-
-// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-// enum Button<A> {
-//     Press(A),
-//     Hover(A),
-// }
-
-// impl<A> Button<A> {
-//     fn iter<I: Clone + IntoIterator<Item = A>>(into_iter: I) -> impl Iterator<Item = Self> {
-//         into_iter
-//             .clone()
-//             .into_iter()
-//             .map(Button::Press)
-//             .chain(into_iter.into_iter().map(Button::Hover))
-//     }
-// }
-
-fn create_graph_np_ap() -> Graph<(NumberPad, ArrowPad)> {
-    let mut graph = Graph::new();
-    for n1 in NumberPad::all().iter().cloned() {
-        for a1 in ArrowPad::all().iter().cloned() {
-            let v = (n1, a1);
-
-            for dir in Direction::all_directions() {
-                let a1n = ArrowPad::Direction(dir);
-                let Some(n1n) = n1.neighbor(dir) else {
-                    continue;
-                };
-                let u = (n1n, a1n);
-                graph::add_edge(&mut graph, v, u, 1);
-            }
-
-            graph::add_edge(&mut graph, v, (n1, ArrowPad::A), 1);
-        }
-    }
-
-    graph
-}
-
-fn create_graph_ap_ap() -> Graph<(ArrowPad, ArrowPad)> {
-    let mut graph = Graph::new();
-    for a1 in ArrowPad::all().iter().cloned() {
-        for a2 in ArrowPad::all().iter().cloned() {
-            let v = (a1, a2);
-            for dir in grid::Direction::all_directions() {
-                let a2n = ArrowPad::Direction(dir);
-                let Some(a1n) = a1.neighbor(dir) else {
-                    continue;
-                };
-                let u = (a1n, a2n);
-                graph::add_edge(&mut graph, v, u, 1);
-            }
-
-            graph::add_edge(&mut graph, v, (a1, ArrowPad::A), 1);
-        }
-    }
-
-    graph
-}
-
-type FullNode = (NumberPad, ArrowPad, ArrowPad, ArrowPad);
-
-fn create_graph_full() -> Graph<FullNode> {
-    let mut graph = Graph::new();
-    for n1 in NumberPad::all().iter().cloned() {
-        for a1 in ArrowPad::all().iter().cloned() {
-            for a2 in ArrowPad::all().iter().cloned() {
-                for a3 in ArrowPad::all().iter().cloned() {
-                    let v = (n1, a1, a2, a3);
-
-                    // for the last arrow pad, we add an edge from the current state, to the state
-                    // the neighbor's arrow value.
-                    for dir in Direction::all_directions() {
-                        let a3n = ArrowPad::Direction(dir);
-                        let Some(a2n) = a2.neighbor(dir) else {
-                            continue;
-                        };
-                        let u = (n1, a1, a2n, a3n);
-                        graph::add_edge(&mut graph, v, u, 1);
-                    }
-
-                    // You can press all buttons.
-                    graph::add_edge(&mut graph, v, (n1, a1, a2, ArrowPad::A), 1);
-                }
-
-                // if the child node is pressed, then the parent node can move as well.
-                // (0, ^, *) -> 
-                let v = (n1, a1, a2, ArrowPad::A);
-                for dir in Direction::all_directions() {
-                    let a2n = ArrowPad::Direction(dir);
-                    let Some(a1n) = a1.neighbor(dir) else {
-                        continue;
-                    };
-                    let u = (n1, a1n, a2n, ArrowPad::A);
-                    graph::add_edge(&mut graph, v, u, 1);
-                }
-
-                graph::add_edge(&mut graph, v, (n1, a1, ArrowPad::A, ArrowPad::A), 1);
-            }
-
-            let v = (n1, a1, ArrowPad::A, ArrowPad::A);
-            for dir in Direction::all_directions() {
-                let a1n = ArrowPad::Direction(dir);
-                let Some(n1n) = n1.neighbor(dir) else {
-                    continue;
-                };
-                let u = (n1n, a1n, ArrowPad::A, ArrowPad::A);
-                graph::add_edge(&mut graph, v, u, 1);
-            }
-
-            graph::add_edge(
-                &mut graph,
-                v,
-                (n1, ArrowPad::A, ArrowPad::A, ArrowPad::A),
-                1,
-            );
-        }
-    }
-
-    graph
-}
-
 fn parse_file(filename: &str) -> anyhow::Result<Vec<Vec<NumberPad>>> {
     let mut file = std::fs::File::open(filename)?;
     let mut str = String::new();
@@ -308,138 +234,185 @@ fn parse_file(filename: &str) -> anyhow::Result<Vec<Vec<NumberPad>>> {
     Ok(lines)
 }
 
-type PathCache<N> = BTreeMap<(N, N), BTreeMap<N, Vec<N>>>;
+fn convert_numberpad_path(path: &[NumberPad]) -> anyhow::Result<Vec<ArrowPad>> {
+    let mut res = vec![];
+    let mut prev = None;
+    for part in path.iter() {
+        let part_pos = find(NumberPad::grid(), |v| *v == Some(*part))
+            .ok_or_else(|| anyhow::anyhow!("could not find {:?} in grid", part))?;
 
-fn solve_fn(
-    graph: &Graph<FullNode>,
-    apsp: &graph::AllPairShortestPaths<&FullNode>,
-    expected: &[NumberPad],
-    all_paths: &mut PathCache<FullNode>,
-) -> anyhow::Result<[Vec<ArrowPad>; 3]> {
-    let start: FullNode = (NumberPad::default(), ArrowPad::A, ArrowPad::A, ArrowPad::A);
-    let mut cur = start;
-    let mut res = [vec![], vec![], vec![]];
-    let mut push = |v: FullNode| {
-        res[2].push(v.3);
-        if v.3 == ArrowPad::A {
-            res[1].push(v.2);
-            if v.2 == ArrowPad::A {
-                res[0].push(v.1);
+        match prev {
+            None => {
+                prev = Some(part_pos);
+            }
+            Some(p) => {
+                let delta = grid::vec_sub(part_pos, p);
+                let dir = grid::Direction::from_delta(delta).ok_or_else(|| {
+                    anyhow::anyhow!("could not find direction from {:?} to {:?}", p, part_pos)
+                })?;
+
+                res.push(ArrowPad::Direction(dir));
+                prev = Some(part_pos);
             }
         }
+    }
+
+    res.push(ArrowPad::A);
+    Ok(res)
+}
+
+fn convert_arrowpad_path(path: &[ArrowPad]) -> anyhow::Result<Vec<ArrowPad>> {
+    let mut res = vec![];
+    let mut prev = None;
+    for part in path.iter() {
+        let part_pos = find(ArrowPad::grid(), |v| *v == Some(*part))
+            .ok_or_else(|| anyhow::anyhow!("could not find {:?} in grid", part))?;
+
+        match prev {
+            None => {
+                prev = Some(part_pos);
+            }
+            Some(p) => {
+                let delta = grid::vec_sub(part_pos, p);
+                let dir = grid::Direction::from_delta(delta).ok_or_else(|| {
+                    anyhow::anyhow!("could not find direction from {:?} to {:?}", p, part_pos)
+                })?;
+
+                res.push(ArrowPad::Direction(dir));
+                prev = Some(part_pos);
+            }
+        }
+    }
+
+    res.push(ArrowPad::A);
+    Ok(res)
+}
+
+type Cache = BTreeMap<(ArrowPad, ArrowPad, usize), usize>;
+
+fn solve_path(cache: &mut Cache, path: &[NumberPad], depth: usize) -> anyhow::Result<usize> {
+    let mut cur = NumberPad::default();
+    let mut res = 0usize;
+    for part in path.iter() {
+        let Some(paths) = cur.shortest_path(part) else {
+            return Err(anyhow::anyhow!(
+                "no path found from {:?} to {:?}",
+                cur,
+                part
+            ));
+        };
+
+        let path_len = paths
+            .iter()
+            .map(|path| convert_numberpad_path(path))
+            .map(|path| -> Result<usize> {
+                if depth > 0 {
+                    solve_arrowpad_path(cache, &path?, depth - 1)
+                } else {
+                    path.map(|p| p.len())
+                }
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .min()
+            .ok_or_else(|| anyhow::anyhow!("no path found from {:?} to {:?}", cur, part))?;
+
+        res += path_len;
+        cur = *part;
+    }
+    Ok(res)
+}
+
+/// Solves the path from A to B
+/// first it finds a shortest path from A to B then it converts the path int a list of
+/// ArrowPad instructions that would let you move from ArrowPad A to ArrowPad B.
+fn solve_arrowpad_path_simple(from: ArrowPad, to: ArrowPad) -> anyhow::Result<Vec<ArrowPad>> {
+    let res = from
+        .shortest_path(&to)
+        .ok_or_else(|| anyhow::anyhow!("no path found from {:?} to {:?}", from, to))?
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("no path found from {:?} to {:?}", from, to))?;
+
+    convert_arrowpad_path(res)
+}
+
+fn solve_arrowpad_path(
+    cache: &mut Cache,
+    path: &[ArrowPad],
+    depth: usize,
+) -> anyhow::Result<usize> {
+    let mut prev = ArrowPad::A;
+
+    let mut res = 0usize;
+    for part in path.iter() {
+        let part_res = solve_arrowpad_path_step(cache, prev, *part, depth)?;
+        res += part_res;
+        prev = *part;
+    }
+
+    Ok(res)
+}
+
+fn solve_arrowpad_path_step(
+    cache: &mut Cache,
+    from: ArrowPad,
+    to: ArrowPad,
+    depth: usize,
+) -> anyhow::Result<usize> {
+    let idx = (from, to, depth);
+    if let Some(res) = cache.get(&idx) {
+        return Ok(*res);
+    }
+
+    if depth == 0 {
+        let soln = Rc::new(solve_arrowpad_path_simple(from, to)?);
+        cache.entry(idx).or_insert(soln.len());
+        return Ok(soln.len());
     };
 
-    for next in expected.iter().cloned() {
-        let n = (next, ArrowPad::A, ArrowPad::A, ArrowPad::A);
-        let Some(distances) = apsp.get(&cur) else {
-            return Err(anyhow::anyhow!("no path found due to no distances"));
-        };
+    let paths = from.shortest_path(&to).ok_or_else(|| {
+        anyhow::anyhow!(
+            "no path found from {:?} to {:?} on depth {}",
+            from,
+            to,
+            depth
+        )
+    })?;
 
-        let paths = all_paths
-            .entry((cur, n))
-            .or_insert_with(|| graph::all_paths(graph, distances, cur, n));
-
-        if cur == n {
-            // he path is a self loop
-            push(n);
-            continue;
-        }
-
-        while cur != n {
-            let v = *paths
-                .get(&cur)
-                .ok_or(anyhow::anyhow!("no path found for {:?} to {:?}", cur, next))?
-                .first()
-                .ok_or(anyhow::anyhow!("no path found: node has no edges"))?;
-            cur = v;
-            print!("{:?} ", v);
-            push(v);
+    let mut best_path = None;
+    for path in paths.iter() {
+        // get arrow pad path
+        let path = convert_arrowpad_path(path)?;
+        let res = solve_arrowpad_path(cache, &path, depth - 1)?;
+        match &best_path {
+            None => {
+                best_path = Some(res);
+            }
+            Some(best) => {
+                if res < *best {
+                    best_path = Some(res);
+                }
+            }
         }
     }
 
-    Ok(res)
+    let soln =
+        best_path.ok_or_else(|| anyhow::anyhow!("no path found from {:?} to {:?}", from, to))?;
+    cache.entry(idx).or_insert(soln);
+    Ok(soln)
 }
 
-fn solve<N: Ord + Copy + Default + std::fmt::Debug>(
-    graph: &Graph<(N, ArrowPad)>,
-    apsp: &graph::AllPairShortestPaths<&(N, ArrowPad)>,
-    expected: &[N],
-    all_paths: &mut PathCache<(N, ArrowPad)>,
-) -> anyhow::Result<Vec<ArrowPad>> {
-    let start = (N::default(), ArrowPad::A);
-    let mut cur = start;
-    let mut res = vec![];
-
-    for next in expected.iter().cloned() {
-        let Some(distances) = apsp.get(&cur) else {
-            return Err(anyhow::anyhow!("no path found due to no distances"));
-        };
-
-        let paths = all_paths
-            .entry((cur, (next, ArrowPad::A)))
-            .or_insert_with(|| graph::all_paths(graph, distances, cur, (next, ArrowPad::A)));
-
-        println!("trying {:?} to {:?}", cur, next);
-
-        if cur == (next, ArrowPad::A) {
-            // the path is a self loop
-            res.push(ArrowPad::A);
-            continue;
-        }
-
-        let mut idx = 0;
-        while idx == 0 || cur != (next, ArrowPad::A) {
-            idx += 1;
-            let v = *paths
-                .get(&cur)
-                .ok_or(anyhow::anyhow!("no path found for {:?} to {:?}", cur, next))?
-                .first()
-                .ok_or(anyhow::anyhow!("no path found: node has no edges"))?;
-            cur = v;
-            res.push(v.1);
-        }
-    }
-
-    Ok(res)
-}
-
-fn solve_np_ap_ap_ap(input: &[Vec<NumberPad>]) -> anyhow::Result<Vec<Vec<ArrowPad>>> {
-    let np_ap_graph = create_graph_np_ap();
-    let np_ap_paths = graph::all_pairs_shortest_paths(&np_ap_graph);
-    let mut np_ap_cache = PathCache::<(NumberPad, ArrowPad)>::new();
-
-    let ap_ap_graph = create_graph_ap_ap();
-    let ap_ap_paths = graph::all_pairs_shortest_paths(&ap_ap_graph);
-    let mut ap_ap_cache = PathCache::<(ArrowPad, ArrowPad)>::new();
-
-    let mut res = vec![];
-    for line in input.iter() {
-        let moves_np_ap = solve(&np_ap_graph, &np_ap_paths, line, &mut np_ap_cache)?;
-        let moves_np_ap_ap = solve(&ap_ap_graph, &ap_ap_paths, &moves_np_ap, &mut ap_ap_cache)?;
-        let moves_ap_ap_ap_ap = solve(
-            &ap_ap_graph,
-            &ap_ap_paths,
-            &moves_np_ap_ap,
-            &mut ap_ap_cache,
-        )?;
-        res.extend([moves_np_ap, moves_np_ap_ap, moves_ap_ap_ap_ap]);
-    }
-
-    Ok(res)
-}
-
-fn solve_fn_full(input: &[Vec<NumberPad>]) -> anyhow::Result<Vec<Vec<ArrowPad>>> {
-    let full_graph = create_graph_full();
-    let full_paths = graph::all_pairs_shortest_paths(&full_graph);
-    let mut path_cache = PathCache::<FullNode>::new();
-
-    let mut res = vec![];
-    for line in input.iter() {
-        let moves = solve_fn(&full_graph, &full_paths, line, &mut path_cache)?;
-        res.extend(moves);
-    }
-
-    Ok(res)
+fn convert_numberpad_path_to_number(path: &[NumberPad]) -> u64 {
+    path.iter()
+        .filter_map(|n| match n {
+            NumberPad::Number(n) => Some(*n),
+            _ => None,
+        })
+        .fold(0u64, |mut acc, n| {
+            acc *= 10;
+            acc += n as u64;
+            acc
+        })
 }
 
 fn main() -> anyhow::Result<()> {
@@ -447,27 +420,33 @@ fn main() -> anyhow::Result<()> {
     match args {
         Args::Part1 { file } => {
             let res = parse_file(&file)?;
-            let arrowpads = solve_fn_full(&res)?;
-            for arrowpads in arrowpads.iter() {
-                let mut s = String::new();
-                for arrowpad in arrowpads.iter() {
-                    match arrowpad {
-                        ArrowPad::Direction(Direction::Up) => s.push('^'),
-                        ArrowPad::Direction(Direction::Down) => s.push('v'),
-                        ArrowPad::Direction(Direction::Left) => s.push('<'),
-                        ArrowPad::Direction(Direction::Right) => s.push('>'),
-                        ArrowPad::A => s.push('A'),
-                    }
-                }
-                println!("{}", s);
+            let mut cache = Cache::new();
+
+            let mut sum = 0u64;
+            for path in res.iter() {
+                let number = convert_numberpad_path_to_number(path);
+                let arrowpads = solve_path(&mut cache, path, 2)?;
+                println!("{} * {}", arrowpads, number);
+                sum += number * arrowpads as u64;
             }
+
+            println!("{}", sum);
             Ok(())
         }
 
         Args::Part2 { file } => {
-            let output = parse_file(&file)?;
+            let res = parse_file(&file)?;
+            let mut cache = Cache::new();
 
-            todo!();
+            let mut sum = 0u64;
+            for path in res.iter() {
+                let number = convert_numberpad_path_to_number(path);
+                let arrowpads = solve_path(&mut cache, path, 25)?;
+                println!("{} * {}", arrowpads, number);
+                sum += number * arrowpads as u64;
+            }
+
+            println!("{}", sum);
             Ok(())
         }
     }

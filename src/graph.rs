@@ -150,6 +150,32 @@ pub fn all_paths<Node: std::cmp::Ord + Copy>(
         })
 }
 
+pub fn paths_to_vecs<N: Ord + Copy>(
+    paths: &BTreeMap<N, Vec<N>>,
+    start: N,
+    end: N,
+) -> Vec<Vec<N>> {
+    let mut stack = vec![(start, vec![start])];
+    let mut result = Vec::new();
+
+    while let Some((current, path)) = stack.pop() {
+        if current == end {
+            result.push(path);
+            continue;
+        }
+
+        if let Some(neighbors) = paths.get(&current) {
+            for &neighbor in neighbors.iter() {
+                let mut new_path = path.clone();
+                new_path.push(neighbor);
+                stack.push((neighbor, new_path));
+            }
+        }
+    }
+
+    result
+}
+
 fn neighbors<Node: std::cmp::Ord + Copy>(
     graph: &Graph<Node>,
     end: Node,

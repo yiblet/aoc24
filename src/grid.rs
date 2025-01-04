@@ -193,6 +193,18 @@ impl Direction {
         (cur.0 + delta.0, cur.1 + delta.1)
     }
 
+    pub fn from_delta(delta: (isize, isize)) -> Option<Self> {
+        let res = match delta {
+            (-1, 0) => Self::Up,
+            (0, 1) => Self::Right,
+            (0, -1) => Self::Left,
+            (1, 0) => Self::Down,
+            _ => return None,
+        };
+
+        Some(res)
+    }
+
     pub fn apply_inverse(self, cur: (isize, isize)) -> (isize, isize) {
         self.invert().apply(cur)
     }
