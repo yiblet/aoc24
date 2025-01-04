@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use aoc24::{
-    graph::{self, all_paths, dijkstras},
+    graph::{self, rev_all_paths, dijkstras},
     grid::{self},
 };
 use clap::Parser;
@@ -88,7 +88,7 @@ impl ParsedResult {
     fn all_shortest_paths(&self) -> BTreeMap<Node, Vec<Node>> {
         let graph = self.create_graph();
         let distances = dijkstras(&graph, &START_NODE);
-        all_paths(&graph, &distances, START_NODE, END_NODE)
+        rev_all_paths(&graph, &distances, START_NODE, END_NODE)
     }
 }
 

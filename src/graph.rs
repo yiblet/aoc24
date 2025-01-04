@@ -1,11 +1,13 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
-    fmt,
+    iter,
 };
 
 pub type Graph<Node> = BTreeMap<Node, BTreeSet<(Node, usize)>>;
+pub type AllPairShortestPaths<Node> = BTreeMap<Node, BTreeMap<Node, usize>>;
+pub type ShortestPaths<Node> = BTreeMap<Node, usize>;
 
-pub fn dijkstras<'a, T>(weighted_graph: &'a Graph<T>, start: &'a T) -> BTreeMap<&'a T, usize>
+pub fn dijkstras<'a, T>(weighted_graph: &'a Graph<T>, start: &'a T) -> ShortestPaths<&'a T>
 where
     T: PartialEq + Eq + Ord + PartialOrd,
 {
@@ -40,17 +42,64 @@ where
     distances
 }
 
+pub fn reachable<'a, Node: Ord>(graph: &'a Graph<Node>, start: &'a Node) -> BTreeSet<&'a Node> {
+    let mut visited = BTreeSet::new();
+    let mut stac = vec![start];
+
+    while let Some(cur) = stac.pop() {
+        if visited.contains(cur) {
+            continue;
+        }
+        visited.insert(cur);
+        stac.extend(graph.get(cur).iter().flat_map(|n| n.iter().map(|(n, _)| n)));
+    }
+
+    visited
+}
+
+pub fn is_fully_connected<Node: Ord>(graph: &Graph<Node>) -> bool {
+    let nodes = nodes(graph);
+    nodes.iter().all(|n| reachable(graph, n) == nodes)
+}
+
+pub fn nodes<Node: Ord>(graph: &Graph<Node>) -> BTreeSet<&Node> {
+    graph
+        .iter()
+        .flat_map(|v| iter::once(v.0).chain(v.1.iter().map(|(n, _)| n)))
+        .collect()
+}
+
+pub fn all_pairs_shortest_paths<Node: Ord + Copy>(
+    graph: &Graph<Node>,
+) -> AllPairShortestPaths<&Node> {
+    let nodes = nodes(graph);
+
+    nodes
+        .into_iter()
+        .map(|n| (n, dijkstras(graph, n)))
+        .collect()
+}
+
+pub fn add_edge<Node: std::cmp::Ord + Copy>(
+    graph: &mut Graph<Node>,
+    n1: Node,
+    n2: Node,
+    weight: usize,
+) -> bool {
+    graph.entry(n1).or_default().insert((n2, weight))
+}
+
 pub fn reverse_graph<Node: std::cmp::Ord + Copy>(graph: &Graph<Node>) -> Graph<Node> {
     let mut res: Graph<Node> = Graph::new();
     for (n, v) in graph.iter() {
         for (n2, w) in v {
-            res.entry(*n2).or_default().insert((*n, *w));
+            add_edge(&mut res, *n2, *n, *w);
         }
     }
     res
 }
 
-pub fn all_paths<Node: std::cmp::Ord + Copy + fmt::Debug>(
+pub fn rev_all_paths<Node: std::cmp::Ord + Copy>(
     graph: &Graph<Node>,
     distances: &BTreeMap<&Node, usize>,
     start: Node,
@@ -82,8 +131,23 @@ pub fn all_paths<Node: std::cmp::Ord + Copy + fmt::Debug>(
             stack.push(n);
         }
     }
-
     res
+}
+
+pub fn all_paths<Node: std::cmp::Ord + Copy>(
+    graph: &Graph<Node>,
+    distances: &BTreeMap<&Node, usize>,
+    start: Node,
+    end: Node,
+) -> BTreeMap<Node, Vec<Node>> {
+    let paths = rev_all_paths(graph, distances, start, end);
+    paths
+        .into_iter()
+        .flat_map(|(n, v)| v.into_iter().map(move |v| (n, v)))
+        .fold(BTreeMap::<Node, Vec<Node>>::new(), |mut acc, (n, v)| {
+            acc.entry(v).or_default().push(n);
+            acc
+        })
 }
 
 fn neighbors<Node: std::cmp::Ord + Copy>(
