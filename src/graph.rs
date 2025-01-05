@@ -115,20 +115,20 @@ pub fn rev_all_paths<Node: std::cmp::Ord + Copy>(
             continue;
         }
 
-        let Some(min_dist) = neighbors(&graph, cur)
+        let Some(min_dist) = neighbors(&graph, &cur)
             .filter_map(|n| distances.get(&n.0).copied().map(|x| x + n.1))
             .min()
         else {
             continue;
         };
 
-        let min_dist_neighbors = neighbors(&graph, cur)
+        let min_dist_neighbors = neighbors(&graph, &cur)
             .filter(|n| distances.get(&n.0).copied().map(|x| x + n.1) == Some(min_dist))
             .collect::<Vec<_>>();
 
         for (n, _) in min_dist_neighbors {
-            res.entry(cur).or_default().push(n);
-            stack.push(n);
+            res.entry(cur).or_default().push(*n);
+            stack.push(*n);
         }
     }
     res
@@ -150,11 +150,7 @@ pub fn all_paths<Node: std::cmp::Ord + Copy>(
         })
 }
 
-pub fn paths_to_vecs<N: Ord + Copy>(
-    paths: &BTreeMap<N, Vec<N>>,
-    start: N,
-    end: N,
-) -> Vec<Vec<N>> {
+pub fn paths_to_vecs<N: Ord + Copy>(paths: &BTreeMap<N, Vec<N>>, start: N, end: N) -> Vec<Vec<N>> {
     let mut stack = vec![(start, vec![start])];
     let mut result = Vec::new();
 
@@ -176,9 +172,13 @@ pub fn paths_to_vecs<N: Ord + Copy>(
     result
 }
 
-fn neighbors<Node: std::cmp::Ord + Copy>(
-    graph: &Graph<Node>,
-    end: Node,
-) -> impl Iterator<Item = (Node, usize)> + '_ {
-    graph.get(&end).into_iter().flatten().cloned()
+pub fn neighbors<'a, Node: std::cmp::Ord + Copy>(
+    graph: &'a Graph<Node>,
+    n: &'a Node,
+) -> impl Iterator<Item = (&'a Node, usize)> {
+    graph
+        .get(n)
+        .into_iter()
+        .flatten()
+        .map(move |(n, w)| (n, *w))
 }
