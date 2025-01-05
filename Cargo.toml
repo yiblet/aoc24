@@ -11,6 +11,7 @@ path = "src/lib.rs"
 anyhow = { version = "1.0.94", features = ["backtrace", "std"] }
 clap = { version = "4.5.23", features = ["derive", "env"] }
 either = { version = "1.13.0", features = ["serde"] }
+itertools = "0.14.0"
 serde = { version = "1.0.216", features = ["derive"] }
 
 [[bin]]
@@ -96,3 +97,7 @@ path = "src/bin/day20.rs"
 [[bin]]
 name = "day21"
 path = "src/bin/day21.rs"
+
+[[bin]]
+name = "day22"
+path = "src/bin/day22.rs"
