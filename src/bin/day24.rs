@@ -5,7 +5,7 @@ use std::{
     ops::RangeBounds,
 };
 
-use aoc24::{graph, parser};
+use aoc24::parser;
 use clap::Parser;
 
 #[derive(Debug, clap::Parser)]
@@ -69,19 +69,9 @@ impl Node {
         Self([prefix as u8, b'0' + value / 10, b'0' + value % 10])
     }
 
-    fn starts_with(&self, prefix: u8) -> bool {
-        self.0[0] == prefix
-    }
-
     fn as_str(&self) -> Result<&str, std::str::Utf8Error> {
         let res = std::str::from_utf8(&self.0)?;
         Ok(res)
-    }
-}
-
-impl Operand {
-    fn pins(&self) -> impl Iterator<Item = Node> {
-        [self.lhs, self.rhs].into_iter()
     }
 }
 
@@ -171,12 +161,8 @@ impl Circuit {
         self.nodes.get(node).cloned()
     }
 
-    fn gates(&self) -> BTreeSet<Node> {
-        self.ops.keys().cloned().collect()
-    }
-
-    fn ancestors(&self, node: Node, swaps: &[(Node, Node)]) -> BTreeSet<Node> {
-        self.ancestors_of(&[node], swaps)
+    fn gates_iter(&self) -> impl Iterator<Item = Node> + '_ {
+        self.ops.keys().cloned()
     }
 
     fn get_ops(&self, node: Node, swaps: &[(Node, Node)]) -> Option<Operand> {
@@ -227,20 +213,13 @@ impl Circuit {
             .and_then(|node| node.position())
     }
 
-    fn evaluate(&self) -> Option<Evaluate<'_>> {
-        Evaluate::new(self, &[])
+    fn evaluate(&self) -> Option<EvaluateV2<'_>> {
+        EvaluateV2::new(self, &[])
     }
 
-    fn evaluate_swapped<'a>(&'a self, swapped: &'a [(Node, Node)]) -> Option<EvaluateV2<'a>> {
+    fn evaluate_swapped<'a>(&'a self, swapped: &[(Node, Node)]) -> Option<EvaluateV2<'a>> {
         EvaluateV2::new(self, swapped)
     }
-}
-
-#[derive(Debug)]
-struct Evaluate<'a> {
-    parsed: &'a Circuit,
-    swaps: &'a [(Node, Node)],
-    sorted: Vec<Node>,
 }
 
 fn use_swap(result: &Node, swaps: &[(Node, Node)]) -> Node {
@@ -257,78 +236,6 @@ fn use_swap(result: &Node, swaps: &[(Node, Node)]) -> Node {
         })
         .unwrap_or(*result)
 }
-
-impl<'a> Evaluate<'a> {
-    fn new(parsed: &'a Circuit, swapped: &'a [(Node, Node)]) -> Option<Self> {
-        let mut graph = graph::Graph::new();
-
-        for op in parsed.ops.values() {
-            let result = use_swap(&op.result, swapped);
-            graph::add_edge(&mut graph, op.lhs, result, 1);
-            graph::add_edge(&mut graph, op.rhs, result, 1);
-        }
-
-        let sorted = graph::toposort(&graph)?;
-        Some(Self {
-            parsed,
-            swaps: swapped,
-            sorted,
-        })
-    }
-
-    fn exec(&self, x: u64, y: u64) -> anyhow::Result<u64> {
-        let mut values = self.parsed.starts.clone();
-        set_input(&mut values, b'x', x);
-        set_input(&mut values, b'y', y);
-
-        self.run_operations(&mut values)?;
-
-        Ok(solution(&values))
-    }
-
-    fn exec_default(&self) -> anyhow::Result<u64> {
-        let mut values = self.parsed.starts.clone();
-        self.run_operations(&mut values)?;
-        Ok(solution(&values))
-    }
-
-    fn get_op(&self, node: &Node) -> Option<Operand> {
-        self.parsed.get_ops(*node, self.swaps)
-    }
-
-    fn run_operations(&self, values: &mut BTreeMap<Node, bool>) -> anyhow::Result<()> {
-        for node in self.sorted.iter() {
-            let Some(op) = self.get_op(node) else {
-                continue;
-            };
-
-            let Some(lhs) = values.get(&op.lhs) else {
-                return Err(anyhow::anyhow!(
-                    "could not find lhs: {:?} - toposort is likely wrong",
-                    op
-                ));
-            };
-
-            let Some(rhs) = values.get(&op.rhs) else {
-                return Err(anyhow::anyhow!(
-                    "could not find rhs: {:?} - toposort is likely wrong",
-                    op
-                ));
-            };
-
-            let res = match op.op {
-                Op::And => *lhs && *rhs,
-                Op::Or => *lhs || *rhs,
-                Op::Xor => *lhs ^ *rhs,
-            };
-
-            values.insert(op.result, res);
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
 struct EvaluateV2<'a> {
     parsed: &'a Circuit,
     values: Vec<bool>,
@@ -377,7 +284,7 @@ fn create_ops(parsed: &Circuit, swapped: &[(Node, Node)]) -> Option<Vec<(usize, 
 
 impl<'a> EvaluateV2<'a> {
     // FIXME: ops needs to be in topological order.
-    fn new(parsed: &'a Circuit, swapped: &'a [(Node, Node)]) -> Option<Self> {
+    fn new(parsed: &'a Circuit, swapped: &[(Node, Node)]) -> Option<Self> {
         let ops = create_ops(parsed, swapped)?;
         let mut start = vec![false; parsed.nodes.len()];
         for (n, v) in parsed.starts.iter() {
@@ -456,38 +363,13 @@ impl<'a> EvaluateV2<'a> {
     }
 }
 
-fn solution(values: &BTreeMap<Node, bool>) -> u64 {
-    let mut res = 0u64;
-    for (z, val) in values.range(Node::new([b'z', b'0', b'0'])..=Node::new([b'z', b'9', b'9'])) {
-        if !*val {
-            continue;
-        }
-        // SAFETY: we know that the node is a valid position since the range above
-        // guarantees that
-        let position = z.position().unwrap();
-        res |= 1u64 << position;
-    }
-
-    res
-}
-
-fn set_input(values: &mut BTreeMap<Node, bool>, prefix: u8, input: u64) {
-    for (z, val) in
-        values.range_mut(Node::new([prefix, b'0', b'0'])..=Node::new([prefix, b'9', b'9']))
-    {
-        // SAFETY: we know that the node is a valid position since the range above guarantees
-        // validity
-        let position = z.position().unwrap();
-        *val = input & (1u64 << position) != 0;
-    }
-}
-
 fn create_tests(z: u8) -> impl Iterator<Item = [u64; 2]> {
     let tests = [
         [1 << z, 1 << z],             // test that summing sets the bit to zero
         [1 << z, 0],                  // test that summing with 0 is zero
         [0, 0],                       // test that 0+0 is zero
         [1 << (z - 1), 1 << (z - 1)], // test that the carry works
+        [(1 << z) - 1, 1],            // test that the carry works
     ];
 
     tests.into_iter().chain(tests.into_iter().map(|mut x| {
@@ -519,41 +401,57 @@ where
 }
 
 fn solve(circuit: &Circuit) -> anyhow::Result<Vec<(Node, Node)>> {
-    let candidates = circuit.gates();
-    println!("gates = {:?}", candidates.len());
+    solve_dfs(circuit, &[], 0, 4)?.ok_or_else(|| anyhow::anyhow!("could not find solution"))
+}
 
-    let mut swaps = Vec::new();
+fn solve_dfs(
+    circuit: &Circuit,
+    swaps: &[(Node, Node)],
+    min_z: u8,
+    max_swaps: usize,
+) -> anyhow::Result<Option<Vec<(Node, Node)>>> {
+    if swaps.len() > max_swaps {
+        return Ok(None);
+    }
     let max_z = circuit
         .max_z_position()
         .ok_or_else(|| anyhow::anyhow!("could not find max z position: circuit is not valid"))?;
 
-    for z in 0..max_z {
-        if swaps.len() > 4 {
-            anyhow::bail!("reached max swaps")
-        }
-
-        println!(
-            "trying z{:02} with swaps = {:?} remaining candidates {}",
-            z,
-            swaps,
-            candidates.len()
-        );
-
+    let mut swaps = swaps.to_vec();
+    for z in min_z..max_z {
+        println!("trying z{:02} with swaps = {:?}", z, swaps);
         let Some(eval) = circuit.evaluate_swapped(&swaps) else {
-            continue;
+            return Ok(None);
         };
         if validate(z, &|x, y| eval.exec(x, y)) {
             continue;
         }
 
-        // we will have to try finding a swap that fixes this bit
-        match find_swaps(circuit, &swaps, &candidates, z) {
-            None => anyhow::bail!("could not find a solution for z{:02}", z),
-            Some(new_swaps) => swaps = new_swaps,
-        };
+        let z_node = Node::from_prefix('z', z);
+        let ancestors = circuit.ancestors_range(..=z_node, &swaps);
+        for n1 in ancestors.iter().cloned() {
+            for n2 in circuit.gates_iter() {
+                let swap = (n1, n2);
+                if !valid_swap_candidate(&swaps, swap) {
+                    continue;
+                }
+                swaps.push(swap);
+                if let Some(eval) = circuit.evaluate_swapped(&swaps) {
+                    if validate(z, &|x, y| eval.exec(x, y)) {
+                        if let Some(res) = solve_dfs(circuit, &swaps, min_z + 1, max_swaps)? {
+                            return Ok(Some(res));
+                        }
+                    }
+                };
+                swaps.pop();
+            }
+        }
+
+        println!("no solution for z{:02} with swaps {:?}", z, swaps);
+        return Ok(None);
     }
 
-    Ok(swaps)
+    Ok(Some(swaps.to_vec()))
 }
 
 fn swaps_iter(swaps: &[(Node, Node)]) -> impl Iterator<Item = Node> + '_ {
@@ -567,34 +465,6 @@ fn valid_swap_candidate(swaps: &[(Node, Node)], swap: (Node, Node)) -> bool {
 
     swaps_iter(swaps).all(|existing_swap| existing_swap != swap.0)
         && swaps_iter(swaps).all(|existing_swap| existing_swap != swap.1)
-}
-
-fn find_swaps(
-    circuit: &Circuit,
-    swaps: &[(Node, Node)],
-    candidates: &BTreeSet<Node>,
-    z: u8,
-) -> Option<Vec<(Node, Node)>> {
-    let mut swaps = swaps.to_vec();
-
-    let z_node = Node::from_prefix('z', z);
-    let ancestors = circuit.ancestors_range(..=z_node, &swaps);
-    for n1 in ancestors.iter().cloned() {
-        for n2 in candidates.iter().cloned() {
-            let swap = (n1, n2);
-            if !valid_swap_candidate(&swaps, swap) {
-                continue;
-            }
-            swaps.push(swap);
-            if let Some(eval) = circuit.evaluate_swapped(&swaps) {
-                if validate(z, &|x, y| eval.exec(x, y)) {
-                    return Some(swaps);
-                }
-            };
-            swaps.pop();
-        }
-    }
-    None
 }
 
 fn parse_file(filename: &str) -> anyhow::Result<Circuit> {
