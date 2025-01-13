@@ -89,6 +89,15 @@ pub fn add_edge<Node: std::cmp::Ord + Copy>(
     graph.entry(n1).or_default().insert((n2, weight))
 }
 
+pub fn remove_edge<Node: std::cmp::Ord + Copy>(
+    graph: &mut Graph<Node>,
+    n1: Node,
+    n2: Node,
+    weight: usize,
+) -> bool {
+    graph.entry(n1).or_default().remove(&(n2, weight))
+}
+
 pub fn reverse_graph<Node: std::cmp::Ord + Copy>(graph: &Graph<Node>) -> Graph<Node> {
     let mut res: Graph<Node> = Graph::new();
     for (n, v) in graph.iter() {
@@ -181,4 +190,63 @@ pub fn neighbors<'a, Node: std::cmp::Ord + Copy>(
         .into_iter()
         .flatten()
         .map(move |(n, w)| (n, *w))
+}
+
+pub fn toposort<Node: std::cmp::Ord + Copy>(graph: &Graph<Node>) -> Option<Vec<Node>> {
+    let mut res: Vec<Node> = Vec::new();
+    let mut visiting = BTreeSet::new();
+    let mut visited = BTreeSet::new();
+
+    fn visit<Node: std::cmp::Ord + Copy>(
+        node: &Node,
+        graph: &Graph<Node>,
+        visiting: &mut BTreeSet<Node>,
+        visited: &mut BTreeSet<Node>,
+        res: &mut Vec<Node>,
+    ) -> Option<()> {
+        if visiting.contains(node) {
+            // Cycle detected
+            return None;
+        }
+
+        if !visited.contains(node) {
+            visiting.insert(*node);
+
+            for (neighbor, _) in neighbors(graph, node) {
+                visit(neighbor, graph, visiting, visited, res)?;
+            }
+
+            visiting.remove(node);
+            visited.insert(*node);
+            res.push(*node);
+        }
+
+        Some(())
+    }
+
+    for node in nodes(graph) {
+        if !visited.contains(node) {
+            visit(node, graph, &mut visiting, &mut visited, &mut res)?;
+        }
+    }
+
+    res.reverse(); // Reverse to get the correct topological order
+    Some(res)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn toposort_test() {
+        let mut graph = Graph::new();
+        for i in 1..=20usize {
+            add_edge(&mut graph, i, i - 1, 1);
+            add_edge(&mut graph, i, i / 2, 1);
+        }
+
+        let soln: Vec<_> = (0..=20usize).rev().collect();
+        assert_eq!(soln, toposort(&graph).unwrap());
+    }
 }
