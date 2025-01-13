@@ -438,7 +438,7 @@ fn solve_dfs(
                 swaps.push(swap);
                 if let Some(eval) = circuit.evaluate_swapped(&swaps) {
                     if validate(z, &|x, y| eval.exec(x, y)) {
-                        if let Some(res) = solve_dfs(circuit, &swaps, min_z + 1, max_swaps)? {
+                        if let Some(res) = solve_dfs(circuit, &swaps, z + 1, max_swaps)? {
                             return Ok(Some(res));
                         }
                     }
