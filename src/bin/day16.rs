@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use aoc24::{
-    graph::{self, rev_all_paths, dijkstras},
+    graph::{self, dijkstras, rev_all_paths},
     grid::{self},
 };
 use clap::Parser;
